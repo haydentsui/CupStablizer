@@ -1,15 +1,17 @@
 #pragma config(Sensor, S1,HTAC,sensorI2CCustom)
 #include "drivers/hitechnic-accelerometer.h"
 
-float speedLR(float ang, float & angP, float & lastTime, float & dAngPrev, float & sumErrorLR) //Big angle
+
+//Nick and Hayden
+float speedLR(float ang, float & angP, float & lastTime, float & dAngPrev, float & sumErrorLR) //Big  axis
 {
-	//Calculate Derivative value
-	 float dAng;
-	 float now = time10[T1]/100.0;
-	 if (now != lastTime)						//Prevents nul values
+	 float dAng, now = time10[T1]/100.0;
+
+	 if (now != lastTime)	//Prevents nul values
 	 	{
 	 		dAng = (ang - angP)/(now - lastTime);
 	 		sumErrorLR += (ang + angP)*(now - lastTime)/2.0;
+
 	 		//Save for next call
 		 	angP = ang;
 		 	lastTime = now;
@@ -20,28 +22,17 @@ float speedLR(float ang, float & angP, float & lastTime, float & dAngPrev, float
 	 		dAng = dAngPrev;
 	 		ang = angP;
 	 	}
-
-
-	 //Display
-	 float p = 0.85*ang; //0.75 and 0.01
-	 float d = 0.019*dAng;
-	 float in = 0.1*sumErrorLR; //0.1
-	 //nxtDisplayString(0, "LR");
-	 //nxtDisplayString(1, "P=%.2f",p);
-	 //nxtDisplayString(2, "D=%.2f",d);
-	 //nxtDisplayString(3, "T=%.2f",now);
-	 //since balancing to 0 ang is error value
-	 return p+d+in;
+	 return 0.85*ang + 0.019*dAng + 0.1*sumErrorLR;		//Return Speed value from PID
 }
 
-float speedFB(float ang, float & angP, float & lastTime, float & dAngPrev) //Small angle
+//Adriano and Arun
+float speedFB(float ang, float & angP, float & lastTime, float & dAngPrev) //Integral not needed, no const error
 {
-	 //Calculate Derivative
-	 float dAng;
-   float now = time10[T1]/100.0;
+	 float dAng, now = time10[T1]/100.0;
    if(now != lastTime)						//Prevents null value
    {
-     dAng = (ang - angP)/(now - lastTime);
+     dAng = (ang - angP)/(now - lastTime);			 //Calculate Derivative
+
      //Save Previous
      dAngPrev = dAng;
 	   angP = ang;
@@ -53,16 +44,10 @@ float speedFB(float ang, float & angP, float & lastTime, float & dAngPrev) //Sma
      dAng = dAngPrev;
      ang = angP;
    }
-   float d = 0.00975*dAng;
-   float p = 1.05*ang;
-   //Display
-   //nxtDisplayString(4, "FB");
-   //nxtDisplayString(5, "P=%.2f",p);
-   //nxtDisplayString(6, "D=%.2f",d);
-   //nxtDisplayString(7, "T=%.2f",now);
-   return  p + d;
+   return  0.00975*dAng + 1.05*ang; //Returns PD values
 }
 
+//Hayden
 void getValues(float & angleLR,float & angleFB)
 {
 	int _x_axis = 0;
@@ -75,19 +60,21 @@ void getValues(float & angleLR,float & angleFB)
     StopAllTasks();																				//here
   }
 	  float x = _x_axis;																		//RobotC being weird
-    float y = _y_axis;
-    float z = _z_axis;
+    float y = _y_axis;																		//
+    float z = _z_axis;																		//
+
     float sqt = sqrt((x*x)+(y*y)+(z*z));
 
     angleFB = 180.0/PI*acos(_x_axis/sqt)-90;							//Angle cosines
     angleLR = 180.0/PI*acos(_y_axis/sqt)-90;							//Change angle so zero is desired angle
 }
 
-int grabCup() { // function that clamps the cup
+//Arun
+int grabCup() // function that clamps the cup
+{
+	while (SensorValue[S2] == 0)	//Wait for button press
+			wait10Msec(100);					//To prevent user error
 
-	while (SensorValue[S2] == 0){
-	wait10Msec(100);
-}
 	nMotorEncoder[motorC] = 0;
 	motor[motorC] = -15;
 
@@ -95,41 +82,39 @@ int grabCup() { // function that clamps the cup
 
 	motor[motorC] = 0;
 
-	return nMotorEncoder[motorC];
+	return nMotorEncoder[motorC];	//Will be sent to release cup program
 
 }
 
-void release(int distClamp) { //function that releases the cup back to its original value
-
-//	nxtDisplayString(0,"%d",distClamp);
+//Nick
+void release(int distClamp) 	//function that releases the cup back to its original value
+{
 	nMotorEncoder[motorC] = 0;
 	motor[motorC] = 10;
 	while (nMotorEncoder[motorC] <= abs(distClamp)){}
-	//	nxtDisplayString(1,"%d",nMotorEncoder[motorC]);}
 	motor[motorC] = 0;
 }
 
+//Adriano
 int start()
 {
 	int ultDist = 30;
 	bool cond = true;
-//	while(true){
-	//	nxtDisplayString(0, "Light %d ",SensorValue[S3]);
-//nxtDisplayString(2, "Ultra %d ",SensorValue[S4]);}
-	while(SensorValue[S4] > ultDist)
+
+	while(SensorValue[S4] > ultDist)	//No cup in holder
 	{
-	nxtDisplayCenteredBigTextLine(0, "Cup Bal");
+		nxtDisplayCenteredBigTextLine(0, "Cup Bal");
   	nxtDisplayCenteredTextLine(2, "PLEASE PLACE");
   	nxtDisplayCenteredTextLine(3, "PLACE CUP");
   	nxtDisplayCenteredTextLine(4, "IN HOLDER");
   	nxtDisplayCenteredTextLine(7, "Good Cup/Bad Cup");
 		cond = true;
-		while(SensorValue[S2] == 0 && SensorValue[S4] < ultDist)
+		while(SensorValue[S2] == 0 && SensorValue[S4] < ultDist)	//Cup in holder and no button press
 		{
 			if(cond == true)
 			{
 				eraseDisplay();
-				cond = false;
+				cond = false;		//To stop screen flashing
 			}
 			PlaySound(soundDownwardTones);
 			while(bSoundActive) EndTimeSlice();
@@ -144,11 +129,18 @@ int start()
 
 }
 
+//All
 task main()
 {
 	SensorType[S4] = sensorSONAR;
 	SensorType[S3] = sensorCOLORFULL;
 	SensorType[S2] = sensorTouch;
+
+	//LR is left right in refrence to accelerometer
+	//FB is forward back in reference to accelerometer //small angle
+	float lastTimeLR = 0, angleLR = 0, angleLRPrev = 0, dAngPrevLR = 0, sumErrorLR = 0,
+				lastTimeFB = 0, angleFB = 0, angleFBPrev = 0, dAngPrevFB = 0;
+
 
 	wait1Msec(200);
 	int distance = start();
@@ -156,51 +148,43 @@ task main()
 	nxtDisplayCenteredTextLine(4, "UJOINT");
 	wait1Msec(500);
 	while (SensorValue[S2] != 1){}
-	while (SensorValue[S2] != 0){}
+	while (SensorValue[S2] != 0){} //Wait for push and release
 	PlaySound(soundBlip);
-	while(bSoundActive) EndTimeSlice();
-	//Initialising variables
-	float lastTimeLR = 0;
-	float lastTimeFB = 0;
-	float angleLR = 0;		//LR is left right in refrence to accelerometer 	//Large angle
-	float angleLRPrev = 0;
-	float dAngPrevLR = 0;
-	float angleFB = 0;		//FB is forward back in reference to accelerometer //small angle
-	float angleFBPrev = 0;
-	float dAngPrevFB = 0;
-	float sumErrorLR = 0;
-	//Done variable Initialisation
+	while(bSoundActive) EndTimeSlice(); //From sample code
 
 	eraseDisplay();
+	wait1Msec(500);
 	nxtDisplayCenteredBigTextLine(3,"BALANCED");
 	time10[T1] = 0;
-	wait1Msec(500);
-  do//Keep looping //will be while(sensorValue[touch location] == 0){
+  do
   {
 		getValues(angleLR, angleFB);
-		motor[motorA] = speedLR(angleLR, angleLRPrev, lastTimeLR, dAngPrevLR,sumErrorLR); //Change direction to outside speed if does not work
+		motor[motorA] = speedLR(angleLR, angleLRPrev, lastTimeLR, dAngPrevLR,sumErrorLR);
 		motor[motorB] = speedFB(angleFB, angleFBPrev, lastTimeFB, dAngPrevFB);
 	}while(SensorValue[S2] == 0);
+
 	motor[motorA] = 0;
 	motor[motorB] = 0;
-		eraseDisplay();
 
+	eraseDisplay();
 	nxtDisplayCenteredBigTextLine(2, "ADD");
 	nxtDisplayCenteredBigTextLine(4, "UJOINT");
 	nxtDisplayCenteredTextLine(7, "Press to release");
-
 	PlaySound(soundBlip);
 	while(bSoundActive) EndTimeSlice();
-
 	wait1Msec(500);
 	while (SensorValue[S2] != 1){}
 	while (SensorValue[S2] != 0){}
+
+
 	eraseDisplay();
 	nxtDisplayCenteredBigTextLine(2, "RELEASE");
 	nxtDisplayCenteredBigTextLine(4, "U-JOINT");
 	release(distance);
+
 	PlaySound(soundDownwardTones);
 	while(bSoundActive) EndTimeSlice();
+
 	eraseDisplay();
 	nxtDisplayCenteredBigTextLine(2, "HAVE");
 	nxtDisplayCenteredBigTextLine(4, "A GOOD");
